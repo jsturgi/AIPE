@@ -9,3 +9,4 @@ services:
       - ./:/workspace
     environment:
       - JUPYTER_ENABLE_LAB=yes
+      - PYTHONPATH=/workspace
