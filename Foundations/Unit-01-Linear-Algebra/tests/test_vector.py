@@ -1,8 +1,12 @@
 import pytest
 import math
-import sys
-sys.path.append("..")
-from src.vector import Vector
+from src.vector import (
+Vector,
+linear_combination,
+are_linearly_independent,
+project_onto,
+component_orthogonal_to
+)
 
 """
 Unit tests for Vector class.
@@ -196,3 +200,117 @@ class TestEquality:
         v1 = Vector([1, 2])
         v2 = Vector([1, 2, 3])
         assert v1 != v2
+
+class TestLinearCombination:
+    """Test linear combination function."""
+
+    def test_basic_combination(self):
+        v1 = Vector([1, 0])
+        v2 = Vector([0, 1])
+        result = linear_combination([v1, v2], [3, 4])
+        assert result.components == [3, 4]
+
+    def test_single_vector(self):
+        v = Vector([2, 3])
+        result = linear_combination([v], [2])
+        assert result.components == [4, 6]
+
+    def test_zero_scalars(self):
+        v1 = Vector([1, 2])
+        v2 = Vector([3, 4])
+        result = linear_combination([v1, v2], [0, 0])
+        assert result.components == [0, 0]
+
+    def test_negative_scalars(self):
+        v1 = Vector([1, 0])
+        v2 = Vector([0, 1])
+        result = linear_combination([v1, v2], [-1, 2])
+        assert result.components == [-1, 2]
+
+    def test_mismatched_lengths_raises(self):
+        v1 = Vector([1, 0])
+        v2 = Vector([0, 1])
+        with pytest.raises(ValueError):
+            linear_combination([v1, v2], [1])  # Only one scalar
+
+
+class TestLinearIndependence:
+    """Test linear independence check."""
+
+    def test_independent_standard_basis(self):
+        v1 = Vector([1, 0])
+        v2 = Vector([0, 1])
+        assert are_linearly_independent([v1, v2]) 
+
+    def test_dependent_parallel_vectors(self):
+        v1 = Vector([1, 2])
+        v2 = Vector([2, 4])  # 2 * v1
+        assert not are_linearly_independent([v1, v2]) 
+
+    def test_dependent_opposite_vectors(self):
+        v1 = Vector([1, 2])
+        v2 = Vector([-1, -2])  # -1 * v1
+        assert not are_linearly_independent([v1, v2]) 
+
+    def test_independent_non_parallel(self):
+        v1 = Vector([1, 1])
+        v2 = Vector([1, -1])
+        assert are_linearly_independent([v1, v2])
+
+
+class TestProjection:
+    """Test vector projection."""
+
+    def test_project_onto_x_axis(self):
+        v = Vector([3, 4])
+        x_axis = Vector([1, 0])
+        proj = project_onto(v, x_axis)
+        assert proj.components == [3, 0]
+
+    def test_project_onto_y_axis(self):
+        v = Vector([3, 4])
+        y_axis = Vector([0, 1])
+        proj = project_onto(v, y_axis)
+        assert proj.components == [0, 4]
+
+    def test_project_parallel_vectors(self):
+        v = Vector([3, 4])
+        onto = Vector([3, 4])
+        proj = project_onto(v, onto)
+        # Projecting onto itself should give itself
+        assert abs(proj.components[0] - 3) < 1e-10
+        assert abs(proj.components[1] - 4) < 1e-10
+
+    def test_project_perpendicular_vectors(self):
+        v = Vector([1, 0])
+        onto = Vector([0, 1])
+        proj = project_onto(v, onto)
+        # Perpendicular projection should be zero
+        assert abs(proj.components[0]) < 1e-10
+        assert abs(proj.components[1]) < 1e-10
+
+
+class TestOrthogonalComponent:
+    """Test orthogonal component."""
+
+    def test_orthogonal_to_x_axis(self):
+        v = Vector([3, 4])
+        x_axis = Vector([1, 0])
+        perp = component_orthogonal_to(v, x_axis)
+        assert perp.components == [0, 4]
+
+    def test_projection_plus_orthogonal_equals_original(self):
+        v = Vector([3, 4])
+        onto = Vector([1, 1])
+        proj = project_onto(v, onto)
+        perp = component_orthogonal_to(v, onto)
+        reconstructed = proj + perp
+        assert abs(reconstructed.components[0] - v.components[0]) < 1e-10
+        assert abs(reconstructed.components[1] - v.components[1]) < 1e-10
+
+    def test_orthogonal_is_perpendicular(self):
+        v = Vector([3, 4])
+        onto = Vector([1, 1])
+        perp = component_orthogonal_to(v, onto)
+        # Perpendicular component should have zero dot product with 'onto'
+        assert abs(perp.dot(onto)) < 1e-10

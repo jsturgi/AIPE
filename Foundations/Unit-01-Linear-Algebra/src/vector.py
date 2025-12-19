@@ -200,7 +200,7 @@ class Vector:
         if mag == 0:
             raise ValueError("Cannot normalize a zero vector")
         return Vector([component / self.magnitude() for component in self.components])
-
+    
 
 def angle_between(v1: Vector, v2: Vector) -> float:
     """
@@ -226,6 +226,114 @@ def angle_between(v1: Vector, v2: Vector) -> float:
     dot = dot / (v1.magnitude() * v2.magnitude())
     angle = math.degrees(math.acos(dot))
     return angle
+
+def linear_combination(vectors: List[Vector], scalars: List[float]) -> Vector:
+    """
+    Compute a linear combination of vectors.
+
+    Args:
+        vectors: List of vectors [v₁, v₂, ..., vₙ]
+        scalars: List of scalars [c₁, c₂, ..., cₙ]
+
+    Returns:
+        Vector: c₁v₁ + c₂v₂ + ... + cₙvₙ
+
+    Raises:
+        ValueError: If lengths don't match or vectors have different dimensions.
+
+    Example:
+        >>> v1 = Vector([1, 0])
+        >>> v2 = Vector([0, 1])
+        >>> linear_combination([v1, v2], [3, 4])
+        Vector([3, 4])
+    """
+    if len(vectors) != len(scalars):
+        raise ValueError("Different amount of vectors and scalars")
+    for vec in vectors:
+        if len(vec.components) != len(vectors[0].components):
+            raise ValueError("Dimensions don't match")
+    zeros = []
+    for i in range(len(vectors[0].components)):
+        zeros.append(0)
+    toReturn = Vector(zeros)
+    for vec, scalar in zip(vectors, scalars):
+        toReturn = toReturn + vec * scalar
+    
+    return toReturn
+    
+def are_linearly_independent(vectors: List[Vector]) -> bool:
+    """
+    Check if a set of vectors is linearly independent.
+
+    For 2D with 2 vectors, they're independent if not parallel.
+    For general case, use determinant or row reduction (advanced).
+
+    Args:
+        vectors: List of vectors to check.
+
+    Returns:
+        True if linearly independent, False otherwise.
+
+    Simplified approach for 2 vectors in 2D:
+        Independent if v1 × v2 ≠ 0 (cross product / determinant)
+        For [a,b] and [c,d]: ad - bc ≠ 0
+    """
+    # TODO: Implement for 2D case first
+    # TODO: Check if vectors are parallel (one is scalar multiple of other)
+    # Hint: For 2D, compute ad - bc and check if near zero
+    if len(vectors) != 2:
+        raise ValueError("Only 2 vector lists are supported")
+    for vec in vectors:
+        if len(vec.components) != 2:
+            raise ValueError("Only 2D vectors are supported")
+    a,b = vectors[0].components
+    c,d = vectors[1].components
+    return (a*d-b*c) != 0
+
+def project_onto(v: Vector, onto: Vector) -> Vector:
+    """
+    Project vector v onto vector 'onto'.
+
+    The projection is the component of v in the direction of 'onto'.
+
+    Args:
+        v: Vector to project.
+        onto: Vector to project onto.
+
+    Returns:
+        Projection of v onto 'onto'.
+
+    Formula:
+        proj = ((v · onto) / (onto · onto)) * onto
+
+    Geometric meaning:
+        Drop a perpendicular from tip of v to the line of 'onto'.
+        Projection is from origin to where perpendicular hits.
+    """
+    if onto.magnitude() == 0:
+        raise ValueError("Cannot project onto zero vector")
+    proj_v = (v.dot(onto) / (onto.dot(onto))) * onto
+    return proj_v
+    
+def component_orthogonal_to(v: Vector, onto: Vector) -> Vector:
+    """
+    Get the component of v perpendicular to 'onto'.
+
+    Args:
+        v: Original vector.
+        onto: Vector defining the direction.
+
+    Returns:
+        Component of v perpendicular to 'onto'.
+
+    Formula:
+        v_perp = v - proj(v onto 'onto')
+
+    This + projection = original vector.
+    """
+    proj_v = project_onto(v, onto)
+    return v - proj_v
+    
         
         
             
