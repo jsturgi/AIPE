@@ -1,2 +1,35 @@
-__pycache__/ *pyc .ipynb_checkpoints/ .pytest_cach/
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
 
+# Large media files (if doing computer vision)
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
+!**/data.zip
+
+# Secrets (NEVER commit these!)
+*.pem
+*.key
+secrets/
+.secrets
+credentials.json
+
+# Ignore all data directories but keep structure
+data/*
+!data/.gitkeep
+!data/README.md
+
+#ignore trash
+*.trashinfo
+
+#ignore pdfs
+*.pdf
