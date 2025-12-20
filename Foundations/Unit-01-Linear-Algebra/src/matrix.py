@@ -111,4 +111,188 @@ class Matrix:
          """
          return Vector(self.data[i])
     
+    def get_column(self, j: int) -> Vector:
+        """
+        Get column j as a Vector.
+
+        Args:
+            j: Column index (0-based)
+
+        Returns:
+            Vector containing column values.
+        """
+        if j < 0:
+            raise ValueError("index must be >= 0")
+        if j > self.cols:
+            raise ValueError("index out of bounds")
+        col_values = []
+        for row in self.data:
+            col_values.append(row[j])
+        return Vector(col_values)
+    
+    def __add__(self, other: 'Matrix') -> 'Matrix':
+        """
+        Add two matrices element-wise.
+
+        Args:
+            other: Matrix to add.
+
+        Returns:
+            New matrix that is the sum.
+
+        Raises:
+            ValueError: If shapes don't match.
+        """
+        if (self.cols != other.cols or self.rows != other.rows):
+            raise ValueError("Inner Dimensions don't match. Invalid operation")
+        return Matrix([[x+y for x,y in zip(row_a, row_b)] 
+            for row_a,row_b in zip(self.data, other.data)])
+    
+    def __sub__(self, other: 'Matrix') -> 'Matrix':
+        """Subtract matrices element-wise."""
+        if (self.cols != other.cols or self.rows != other.rows):
+            raise ValueError("Inner Dimensions don't match. Invalid operation")
+        return Matrix([[x-y for x,y in zip(row_a, row_b)] 
+            for row_a,row_b in zip(self.data, other.data)])
+    
+    def __mul__(self, scalar: Union[int, float]) -> 'Matrix':
+        """
+        Multiply matrix by scalar.
+
+        Args:
+            scalar: Number to multiply by.
+
+        Returns:
+            New scaled matrix.
+        """
+        return Matrix([[scalar * val for val in row] for row in self.data])
+    
+    def __rmul__(self, scalar: Union[int, float]) -> 'Matrix':
+        """Allow scalar * matrix."""
+        return self * scalar
+    def __matmul__(self, other: Union['Matrix', Vector]) -> Union['Matrix', Vector]:
+        """
+        Matrix multiplication using @ operator.
+
+        Handles both:
+        - Matrix @ Matrix -> Matrix
+        - Matrix @ Vector -> Vector
+
+        Args:
+            other: Matrix or Vector to multiply.
+
+        Returns:
+            Matrix (if other is Matrix) or Vector (if other is Vector).
+
+        Raises:
+            ValueError: If dimensions don't allow multiplication.
+        """
+        if isinstance(other, Vector):
+            return self._matmul_vector(other)
+        elif isinstance(other, Matrix):
+            return self._matmul_matrix(other)
+        else:
+            raise TypeError(f"Cannot multiply Matrix with {type(other)}")   
+    
+    def _matmul_vector(self, v: Vector) -> Vector:
+        """
+        Multiply matrix by vector.
+
+        For A (m×n) and v (n×1), result is (m×1).
+
+        Args:
+            v: Vector with dimension matching self.cols
+
+        Returns:
+            Resulting vector.
+
+        Two equivalent views:
+        1. Each result element is dot product of row with v
+        2. Result is linear combination of columns weighted by v
+
+        Hints:
+            - Result has self.rows elements
+            - result[i] = dot(row_i, v)
+        """
+        if v.dimension != self.cols:
+            raise ValueError("Dimensions don't match")
+        return Vector([v.dot(Vector(row)) for row in self.data])
+
+    def _matmul_matrix(self, other: 'Matrix') -> 'Matrix':
+        """
+        Multiply two matrices.
+    
+        For A (m×n) and B (n×p), result is (m×p).
+    
+        Args:
+            other: Matrix with rows matching self.cols
+    
+        Returns:
+            Resulting matrix.
+    
+        Computation:
+            result[i,j] = dot(row_i of self, col_j of other)
+    
+        Hints:
+            - Result has self.rows rows and other.cols columns
+            - Each element is a dot product
+        """
+        if self.cols != other.rows:
+            raise ValueError("Dimensions don't match")
+        columns = [self @ other.get_column(j) for j in range(other.cols)]
+        return Matrix.from_column_vectors(columns)
+    
+    def transpose(self) -> 'Matrix':
+        """
+        Return transpose of matrix (rows become columns).
+
+        Returns:
+            New matrix with shape (cols, rows).
+
+        The element at [i,j] in original becomes [j,i] in transpose.
+        """
+        return Matrix([self.get_column(i).components for i in range(self.cols)])
+    
+    @staticmethod
+    def identity(n: int) -> 'Matrix':
+        """
+        Create n×n identity matrix.
+
+        Args:
+            n: Size of matrix.
+
+        Returns:
+            Identity matrix with 1s on diagonal, 0s elsewhere.
+        """
+        return Matrix([[1 if i == j else 0 for j in range(n)] for i in range(n)])
+    
+    @staticmethod
+    def zeros(rows: int, cols: int) -> 'Matrix':
+        """Create matrix of zeros."""
+        # TODO: Return matrix filled with zeros
+        return Matrix([[0]*cols for _ in range(rows)])
+    
+    @staticmethod
+    def from_column_vectors(vectors: List[Vector]) -> 'Matrix':
+        """
+        Create matrix from list of column vectors.
+
+        Args:
+            vectors: List of vectors (all same dimension)
+
+        Returns:
+            Matrix where each vector is a column.
+
+        This is the "columns view" of a matrix.
+        """
+        for vec in vectors:
+            if vec.dimension != vectors[0].dimension:
+                raise ValueError("Vectors must have same dimension")
+        return Matrix([list(row) for row in zip(*[vec.components for vec in vectors])])
+        
+        
+    
+
+
+    
         
