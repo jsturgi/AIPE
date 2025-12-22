@@ -1,85 +1,87 @@
 """
 Vector class implementation from scratch
 """
+
 import math
 from typing import List, Union
+
 
 class Vector:
     """
     A mathematical vector with geometrical operations
-    
+
     Vectors are arrows with direction and magnitude.
     This class implements vectors as lists of components.
-    
+
     Attributes:
         components: List of numerical values [x, y, z,...]
-    
+
     Example:
         >>> v = Vector([3,4])
         >>> v.magnitude()
         5.0
     """
-    
+
     def __init__(self, components: List[Union[int, float]]):
         """
         Initialize a vector with given components.
-        
+
         Args:
             components: List of numbers representing vector components
-        
+
         Raises:
             ValueError: If components is empty
         """
         self.components = list(components)
         if not self.components:
             raise ValueError("Vector components cannot be empty")
-    
+
     @property
     def dimension(self) -> int:
         """
         Return the dimension (number of components) of the vector.
-        
+
         Returns:
             Number of components
         """
         return len(self.components)
-    
+
     def __repr__(self) -> str:
         """
         String representation of the vector.
-        
+
         Returns:
             "Vector([4,3])
         """
         return f"Vector({self.components})"
-    
+
     def __eq__(self, other: object) -> bool:
         """
         Check if two vectors are equal.
-        
+
         Args:
             other: Another vector to compare.
-        
+
         Returns:
             True if components match, False otherwise.
         """
         if type(other) is not Vector:
             raise TypeError("Other must be a Vector")
         return self.components == other.components
-    
-    def __add__(self, other: 'Vector') -> 'Vector':
+
+    def __add__(self, other: "Vector") -> "Vector":
         """
         Add two vectors component-wise.
-        
+
         Args:
             other: Vector to add.
-        
+
         Returns:
             New vector that is the sum
-        
+
         Raises:
             ValueError: If dimensions don't match
-        
+
         Geometric Meaning:
             Place other's tail at self's tip.
             Result goes from self's tail to other's tip.
@@ -88,43 +90,43 @@ class Vector:
             raise ValueError("Vectors must be the same dimension")
         result = [a + b for a, b in zip(self.components, other.components)]
         return Vector(result)
-    
-    def __sub__(self, other: 'Vector') -> 'Vector':
+
+    def __sub__(self, other: "Vector") -> "Vector":
         """
         Subtract other vector from self.
-        
+
         Args:
             other: Vector to subtract.
-        
+
         Returns:
             New vector that is the difference
-        
+
         Geometric Meaning:
             self - other gives vector FROM other TO self.
         """
         if len(self.components) != len(other.components):
-                raise ValueError("Vectors are of different dimension!")
-        result = [a-b for a,b in zip(self.components, other.components)]
+            raise ValueError("Vectors are of different dimension!")
+        result = [a - b for a, b in zip(self.components, other.components)]
         return Vector(result)
-    
-    def __mul__(self, scalar: Union[int, float]) -> 'Vector':
+
+    def __mul__(self, scalar: Union[int, float]) -> "Vector":
         """
         Multiply vector by a scalar
-        
+
         Args:
             scalar: Number to multiply by
-        
+
         Returns:
             New scaled vector.
-        
+
         Geometric meaning:
             Stretches (or shrinks) the arrow.
             Negative scalar reverses direction.
         """
         result = [scalar * component for component in self.components]
         return Vector(result)
-    
-    def __rmul__(self, scalar: Union[int, float]) -> 'Vector':
+
+    def __rmul__(self, scalar: Union[int, float]) -> "Vector":
         """
         Allow scalar * vector (scalar on left side).
 
@@ -135,6 +137,9 @@ class Vector:
             New scaled vector.
         """
         return self.__mul__(scalar)
+
+    def __truediv__(self, scalar: Union[int, float]) -> "Vector":
+        return Vector([c / scalar for c in self.components])
 
     def magnitude(self) -> float:
         """
@@ -150,9 +155,9 @@ class Vector:
             The length of the arrow.
         """
         sum_of_squares = sum(c**2 for c in self.components)
-        return sum_of_squares ** 0.5
+        return sum_of_squares**0.5
 
-    def dot(self, other: 'Vector') -> float:
+    def dot(self, other: "Vector") -> float:
         """
         Compute dot product with another vector.
 
@@ -180,7 +185,7 @@ class Vector:
             raise ValueError("Vectors must be the same dimension")
         return sum(a * b for a, b in zip(self.components, other.components))
 
-    def normalize(self) -> 'Vector':
+    def normalize(self) -> "Vector":
         """
         Return a unit vector in the same direction.
 
@@ -200,7 +205,7 @@ class Vector:
         if mag == 0:
             raise ValueError("Cannot normalize a zero vector")
         return Vector([component / self.magnitude() for component in self.components])
-    
+
 
 def angle_between(v1: Vector, v2: Vector) -> float:
     """
@@ -226,6 +231,7 @@ def angle_between(v1: Vector, v2: Vector) -> float:
     dot = dot / (v1.magnitude() * v2.magnitude())
     angle = math.degrees(math.acos(dot))
     return angle
+
 
 def linear_combination(vectors: List[Vector], scalars: List[float]) -> Vector:
     """
@@ -258,9 +264,10 @@ def linear_combination(vectors: List[Vector], scalars: List[float]) -> Vector:
     toReturn = Vector(zeros)
     for vec, scalar in zip(vectors, scalars):
         toReturn = toReturn + vec * scalar
-    
+
     return toReturn
-    
+
+
 def are_linearly_independent(vectors: List[Vector]) -> bool:
     """
     Check if a set of vectors is linearly independent.
@@ -286,9 +293,10 @@ def are_linearly_independent(vectors: List[Vector]) -> bool:
     for vec in vectors:
         if len(vec.components) != 2:
             raise ValueError("Only 2D vectors are supported")
-    a,b = vectors[0].components
-    c,d = vectors[1].components
-    return (a*d-b*c) != 0
+    a, b = vectors[0].components
+    c, d = vectors[1].components
+    return (a * d - b * c) != 0
+
 
 def project_onto(v: Vector, onto: Vector) -> Vector:
     """
@@ -314,7 +322,8 @@ def project_onto(v: Vector, onto: Vector) -> Vector:
         raise ValueError("Cannot project onto zero vector")
     proj_v = (v.dot(onto) / (onto.dot(onto))) * onto
     return proj_v
-    
+
+
 def component_orthogonal_to(v: Vector, onto: Vector) -> Vector:
     """
     Get the component of v perpendicular to 'onto'.
@@ -333,9 +342,3 @@ def component_orthogonal_to(v: Vector, onto: Vector) -> Vector:
     """
     proj_v = project_onto(v, onto)
     return v - proj_v
-    
-        
-        
-            
-        
-            
