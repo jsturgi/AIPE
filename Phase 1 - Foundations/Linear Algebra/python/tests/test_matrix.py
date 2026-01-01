@@ -6,7 +6,9 @@ from src.matrix import (Matrix,
     scaling_matrix,
     reflection_matrix,
     projection_matrix,
-    compose)
+    compose, determinant,
+ determinant_2x2, determinant_3x3, 
+ is_invertible, minor, cofactor)
 from src.vector import Vector
 
 
@@ -289,3 +291,115 @@ class TestSpecialMatrices:
             result = combined @ v
             assert abs(result.components[0] - 3) < 1e-10
             assert abs(result.components[1] - 4) < 1e-10
+    class TestDeterminant2x2:
+        def test_identity(self):
+            I = Matrix([[1, 0], [0, 1]])
+            assert determinant_2x2(I) == 1
+    
+        def test_basic(self):
+            A = Matrix([[3, 8], [4, 6]])
+            # det = 3*6 - 8*4 = 18 - 32 = -14
+            assert determinant_2x2(A) == -14
+    
+        def test_singular(self):
+            # Rows are multiples of each other
+            A = Matrix([[2, 4], [1, 2]])
+            assert determinant_2x2(A) == 0
+    
+        def test_rotation_matrix(self):
+            import math
+            theta = math.pi / 4  # 45 degrees
+            R = Matrix([
+                [math.cos(theta), -math.sin(theta)],
+                [math.sin(theta), math.cos(theta)]
+            ])
+            # Rotation matrices have det = 1
+            assert abs(determinant_2x2(R) - 1) < 1e-10
+    
+    
+    class TestDeterminant3x3:
+        def test_identity(self):
+            I = Matrix([[1,0,0], [0,1,0], [0,0,1]])
+            assert determinant_3x3(I) == 1
+    
+        def test_basic(self):
+            A = Matrix([
+                [1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9]
+            ])
+            # This matrix is singular (det = 0)
+            assert abs(determinant_3x3(A)) < 1e-10
+    
+        def test_nonsingular(self):
+            A = Matrix([
+                [1, 2, 3],
+                [0, 1, 4],
+                [5, 6, 0]
+            ])
+            # det = 1(0-24) - 2(0-20) + 3(0-5) = -24 + 40 - 15 = 1
+            assert determinant_3x3(A) == 1
+    
+    
+    class TestMinor:
+        def test_3x3_minor(self):
+            A = Matrix([
+                [1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9]
+            ])
+            M = minor(A, 0, 0)
+            assert M.data == [[5, 6], [8, 9]]
+    
+            M = minor(A, 1, 1)
+            assert M.data == [[1, 3], [7, 9]]
+    
+    
+    class TestCofactor:
+        def test_cofactor_signs(self):
+            A = Matrix([
+                [1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9]
+            ])
+            # Cofactor at (0,0): +1 * det([[5,6],[8,9]]) = 5*9 - 6*8 = -3
+            assert cofactor(A, 0, 0) == -3
+    
+            # Cofactor at (0,1): -1 * det([[4,6],[7,9]]) = -(4*9 - 6*7) = -(-6) = 6
+            assert cofactor(A, 0, 1) == 6
+    
+    
+    class TestDeterminantGeneral:
+        def test_1x1(self):
+            A = Matrix([[5]])
+            assert determinant(A) == 5
+    
+        def test_4x4(self):
+            A = Matrix([
+                [1, 2, 3, 4],
+                [5, 6, 7, 8],
+                [9, 10, 11, 12],
+                [13, 14, 15, 16]
+            ])
+            # This is singular
+            assert abs(determinant(A)) < 1e-10
+    
+        def test_4x4_nonsingular(self):
+            A = Matrix([
+                [1, 0, 2, -1],
+                [3, 0, 0, 5],
+                [2, 1, 4, -3],
+                [1, 0, 5, 0]
+            ])
+            # det = 30 (computed separately)
+            assert abs(determinant(A) - 30) < 1e-10
+    
+    
+    class TestIsInvertible:
+        def test_invertible(self):
+            A = Matrix([[1, 2], [3, 4]])
+            assert is_invertible(A) == True
+    
+        def test_singular(self):
+            A = Matrix([[1, 2], [2, 4]])
+            assert is_invertible(A) == False

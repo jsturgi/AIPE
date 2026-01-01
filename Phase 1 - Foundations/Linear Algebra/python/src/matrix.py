@@ -289,6 +289,9 @@ class Matrix:
             if vec.dimension != vectors[0].dimension:
                 raise ValueError("Vectors must have same dimension")
         return Matrix([list(row) for row in zip(*[vec.components for vec in vectors])])
+    
+    
+    
 
 def rotation_matrix(angle_degrees: float) -> Matrix:
     """
@@ -407,8 +410,164 @@ def compose(*matrices: Matrix) -> Matrix:
     for m in reversed(matrices[:-1]):
         toReturn = toReturn @ m
     return toReturn
-        
+
+def determinant_2x2(matrix: Matrix) -> float:
+    """
+    Compute determinant of a 2x2 matrix.
+
+    Args:
+        matrix: A 2x2 Matrix object.
+
+    Returns:
+        The determinant (ad - bc).
+
+    Raises:
+        ValueError: If matrix is not 2x2.
+
+    Formula:
+        [ a  b ]
+        [ c  d ] → ad - bc
+    """
+    if matrix.rows != matrix.cols:
+        raise ValueError("Not a square matrix. Determinant cannot be computed.")
+    if matrix.rows != 2:
+        raise ValueError("Only supports 2x2 Matrices.")
+    a,b = matrix.data[0]
+    c,d = matrix.data[1]
+
+    return a*d - b*c
+
+
+
+def determinant_3x3(matrix: Matrix) -> float:
+    """
+    Compute determinant of a 3x3 matrix using cofactor expansion.
+
+    Args:
+        matrix: A 3x3 Matrix object.
+
+    Returns:
+        The determinant.
+
+    Raises:
+        ValueError: If matrix is not 3x3.
+
+    Formula (expansion along first row):
+        a(ei - fh) - b(di - fg) + c(dh - eg)
+
+    where:
+        [ a  b  c ]
+        [ d  e  f ]
+        [ g  h  i ]
+    """
+    a,b,c = matrix.data[0]
+    d,e,f = matrix.data[1]
+    g,h,i = matrix.data[2]
+    return a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g)
+
+def minor(matrix: Matrix, row: int, col: int) -> Matrix:
+    """
+    Get the minor matrix by removing specified row and column.
+
+    Args:
+        matrix: The original matrix.
+        row: Row index to remove (0-indexed).
+        col: Column index to remove (0-indexed).
+
+    Returns:
+        New matrix with one less row and column.
+
+    Example:
+        minor([[1,2,3],[4,5,6],[7,8,9]], 0, 0) → [[5,6],[8,9]]
+    """
+    toReturn = []
+    for i in range(matrix.rows):
+        toAppend = []
+        if i != row:
+            toAppend = matrix.get_row(i).components
+            toAppend.pop(col)
+            toReturn.append(toAppend)
+    return Matrix(toReturn)
+
+def cofactor(matrix: Matrix, row: int, col: int) -> float:
+    """
+    Compute the cofactor at position (row, col).
+
+    Cofactor = (-1)^(row+col) * det(minor)
+
+    Args:
+        matrix: The original matrix.
+        row: Row index.
+        col: Column index.
+
+    Returns:
+        The cofactor value.
+    """
+    matMinor = minor(matrix, row, col)
+    minorDet = determinant(matMinor)
+    return (-1)**(row+col) * minorDet
     
+def determinant(matrix: Matrix):
+        """
+        Computes determinant
+        """
+       
+        if matrix.cols != matrix.rows:
+            raise ValueError("Not a square matrix. Determinant cannot be computed.")
+        match matrix.rows:
+            case 1:
+                return matrix.data[0][0]
+            case 2:
+                a,b = matrix.data[0]
+                c,d = matrix.data[1]
+                return a*d - b*c
+            case 3:
+                a,b,c = matrix.data[0]
+                d,e,f = matrix.data[1]
+                g,h,i = matrix.data[2]
+                return a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g)
+            case _: # row reduction
+                swaps = 0
+                matrix_cp = [row.copy() for row in matrix.data]
+                for i in range(matrix.cols-1):
+                    if not matrix_cp[i][i]: #zero pivot
+                        row_swap = None
+                        for k in range(i+1, matrix.rows): #search rows below pivot
+                            if matrix_cp[k][i]:
+                                row_swap = k
+                                break
+                        if not row_swap:
+                            return 0 # all zeros, det 0
+                        matrix_cp[row_swap], matrix_cp[i] = matrix_cp[i], matrix_cp[row_swap]
+                        swaps+=1
+                    for j in range(i+1, matrix.rows):
+                        multiplier = matrix_cp[j][i] / matrix_cp[i][i]
+                        for col in range(matrix.cols):
+                            matrix_cp[j][col] = matrix_cp[j][col] - multiplier*matrix_cp[i][col]
+                det = 1
+                for i in range(matrix.cols):
+                    det = det * matrix_cp[i][i]
+                if swaps % 2 == 0:
+                    return det
+                else:
+                    return det*-1
+def is_invertible(matrix: Matrix) -> bool:
+    """
+    Check if a matrix is invertible.
+
+    A matrix is invertible if and only if its determinant is non-zero.
+
+    Args:
+        matrix: A square matrix.
+
+    Returns:
+        True if invertible, False otherwise.
+    """
+    det = determinant(matrix)
+    tolerance = 1e-10
+    return abs(det) > tolerance
+    # TODO: Compute determinant
+    # TODO: Return True if |det| > tolerance (e.g., 1e-10)
 
 
     
