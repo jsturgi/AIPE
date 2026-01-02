@@ -8,7 +8,11 @@ from src.matrix import (Matrix,
     projection_matrix,
     compose, determinant,
  determinant_2x2, determinant_3x3, 
- is_invertible, minor, cofactor)
+ is_invertible, minor, cofactor,
+ cofactor_matrix, adjugate,
+ inverse, inverse_2x2, inverse_adjugate,
+ inverse_gauss_jordan, swap_rows, scale_row,
+ add_row_multiple, augment)
 from src.vector import Vector
 
 
@@ -403,3 +407,132 @@ class TestSpecialMatrices:
         def test_singular(self):
             A = Matrix([[1, 2], [2, 4]])
             assert is_invertible(A) == False
+class TestInverse2x2:
+    def test_identity_inverse(self):
+        I = Matrix([[1, 0], [0, 1]])
+        I_inv = inverse_2x2(I)
+        assert I_inv.data == [[1, 0], [0, 1]]
+
+    def test_basic_inverse(self):
+        A = Matrix([[4, 7], [2, 6]])
+        A_inv = inverse_2x2(A)
+        # det = 24 - 14 = 10
+        # A_inv = (1/10) * [[6, -7], [-2, 4]]
+        assert abs(A_inv.data[0][0] - 0.6) < 1e-10
+        assert abs(A_inv.data[0][1] - (-0.7)) < 1e-10
+        assert abs(A_inv.data[1][0] - (-0.2)) < 1e-10
+        assert abs(A_inv.data[1][1] - 0.4) < 1e-10
+
+    def test_inverse_times_original(self):
+        A = Matrix([[4, 7], [2, 6]])
+        A_inv = inverse_2x2(A)
+        product = A @ A_inv
+        # Should be identity
+        assert abs(product.data[0][0] - 1) < 1e-10
+        assert abs(product.data[0][1] - 0) < 1e-10
+        assert abs(product.data[1][0] - 0) < 1e-10
+        assert abs(product.data[1][1] - 1) < 1e-10
+
+    def test_singular_matrix_raises(self):
+        A = Matrix([[1, 2], [2, 4]])  # det = 0
+        with pytest.raises(ValueError):
+            inverse_2x2(A)
+
+
+class TestCofactorMatrix:
+    def test_2x2_cofactor_matrix(self):
+        A = Matrix([[1, 2], [3, 4]])
+        C = cofactor_matrix(A)
+        assert C.data == [[4, -3], [-2, 1]]
+
+
+class TestAdjugate:
+    def test_2x2_adjugate(self):
+        A = Matrix([[1, 2], [3, 4]])
+        adj = adjugate(A)
+        # Transpose of cofactor matrix
+        assert adj.data == [[4, -2], [-3, 1]]
+
+
+class TestGaussJordan:
+    def test_3x3_inverse(self):
+        A = Matrix([
+            [1, 2, 3],
+            [0, 1, 4],
+            [5, 6, 0]
+        ])
+        A_inv = inverse_gauss_jordan(A)
+
+        # Verify A @ A_inv = I
+        product = A @ A_inv
+        for i in range(3):
+            for j in range(3):
+                expected = 1 if i == j else 0
+                assert abs(product.data[i][j] - expected) < 1e-10
+
+    def test_4x4_inverse(self):
+        A = Matrix([
+            [1, 0, 2, -1],
+            [3, 0, 0, 5],
+            [2, 1, 4, -3],
+            [1, 0, 5, 0]
+        ])
+        A_inv = inverse_gauss_jordan(A)
+
+        # Verify A @ A_inv = I
+        product = A @ A_inv
+        for i in range(4):
+            for j in range(4):
+                expected = 1 if i == j else 0
+                assert abs(product.data[i][j] - expected) < 1e-10
+
+    def test_singular_raises(self):
+        A = Matrix([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9]
+        ])
+        with pytest.raises(ValueError):
+            inverse_gauss_jordan(A)
+
+
+class TestRowOperations:
+    def test_swap_rows(self):
+        A = Matrix([[1, 2], [3, 4]])
+        B = swap_rows(A, 0, 1)
+        assert B.data == [[3, 4], [1, 2]]
+        # Original unchanged
+        assert A.data == [[1, 2], [3, 4]]
+
+    def test_scale_row(self):
+        A = Matrix([[1, 2], [3, 4]])
+        B = scale_row(A, 0, 2)
+        assert B.data == [[2, 4], [3, 4]]
+
+    def test_add_row_multiple(self):
+        A = Matrix([[1, 2], [3, 4]])
+        # row[1] += 2 * row[0]
+        B = add_row_multiple(A, 1, 0, 2)
+        assert B.data == [[1, 2], [5, 8]]
+
+
+class TestInverseDispatcher:
+    def test_uses_2x2_formula(self):
+        A = Matrix([[4, 7], [2, 6]])
+        A_inv = inverse(A)
+        # Check it worked
+        product = A @ A_inv
+        assert abs(product.data[0][0] - 1) < 1e-10
+
+    def test_uses_gauss_jordan_for_larger(self):
+        A = Matrix([
+            [1, 2, 3],
+            [0, 1, 4],
+            [5, 6, 0]
+        ])
+        A_inv = inverse(A)
+        product = A @ A_inv
+        for i in range(3):
+            for j in range(3):
+                expected = 1 if i == j else 0
+                assert abs(product.data[i][j] - expected) < 1e-10

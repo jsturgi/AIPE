@@ -566,9 +566,228 @@ def is_invertible(matrix: Matrix) -> bool:
     det = determinant(matrix)
     tolerance = 1e-10
     return abs(det) > tolerance
-    # TODO: Compute determinant
-    # TODO: Return True if |det| > tolerance (e.g., 1e-10)
 
+def cofactor_matrix(matrix: Matrix) -> Matrix:
+    """
+    Compute the cofactor matrix.
 
+    The cofactor matrix C has C[i,j] = cofactor(matrix, i, j).
+
+    Args:
+        matrix: A square matrix.
+
+    Returns:
+        The cofactor matrix.
+    """
+    mat_copy = [row.copy() for row in matrix.data]
+    mat_copy = [[cofactor(matrix, i, j) for j in range(matrix.cols)] for i in range(matrix.rows)]
+    return Matrix(mat_copy)
+
+def adjugate(matrix: Matrix) -> Matrix:
+    """
+    Compute the adjugate (classical adjoint) matrix.
+
+    adjugate(A) = transpose(cofactor_matrix(A))
+
+    Args:
+        matrix: A square matrix.
+
+    Returns:
+        The adjugate matrix.
+
+    Note: A⁻¹ = adjugate(A) / det(A)
+    """
+    return cofactor_matrix(matrix).transpose()
+
+def inverse_adjugate(matrix: Matrix) -> Matrix:
+    """
+    Compute matrix inverse using the adjugate method.
+
+    A⁻¹ = (1/det(A)) * adjugate(A)
+
+    Args:
+        matrix: An invertible square matrix.
+
+    Returns:
+        The inverse matrix.
+
+    Raises:
+        ValueError: If matrix is not invertible (det = 0).
+
+    Complexity: O(n! * n²) - not efficient for large matrices.
+    """
+    det = determinant(matrix)
+    tolerance = 1e-10
     
-        
+    if abs(det) < tolerance:
+        raise ValueError("Matrix is not invertible (det = 0")
+    
+    return ((1/det) * adjugate(matrix))
+
+def inverse_2x2(matrix: Matrix) -> Matrix:
+    """
+    Compute 2x2 matrix inverse using direct formula.
+
+    For A = [[a,b],[c,d]], A⁻¹ = (1/det) * [[d,-b],[-c,a]]
+
+    Args:
+        matrix: A 2x2 invertible matrix.
+
+    Returns:
+        The inverse matrix.
+
+    Raises:
+        ValueError: If not 2x2 or not invertible.
+    """
+    if (matrix.rows != 2) and (matrix.cols != 2):
+        raise ValueError("Matrix must be 2x2.")
+    if not is_invertible(matrix):
+        raise ValueError("Matrix is not invertible")
+    det = determinant_2x2(matrix)
+    a,b = matrix.data[0]
+    c,d = matrix.data[1]
+    inverse = [[d,-b],[-c,a]]
+    return (1/det) * Matrix(inverse)
+    
+def swap_rows(matrix: Matrix, i: int, j: int) -> Matrix:
+    """
+    Swap two rows in a matrix (returns new matrix).
+
+    Args:
+        matrix: The matrix.
+        i, j: Row indices to swap.
+
+    Returns:
+        New matrix with rows swapped.
+    """
+    new_data = [row[:] for row in matrix.data]
+
+    # Swap rows i and j
+    new_data[i], new_data[j] = new_data[j], new_data[i]
+
+    return Matrix(new_data)
+
+
+def scale_row(matrix: Matrix, i: int, scalar: float) -> Matrix:
+    """
+    Multiply a row by a scalar (returns new matrix).
+
+    Args:
+        matrix: The matrix.
+        i: Row index.
+        scalar: Value to multiply by.
+
+    Returns:
+        New matrix with row scaled.
+    """
+    new_data = [row[:] for row in matrix.data]
+    
+    new_data[i] = [val * scalar for val in new_data[i]]
+    
+    return Matrix(new_data)
+
+
+def add_row_multiple(matrix: Matrix, target: int, source: int, scalar: float) -> Matrix:
+    """
+    Add a multiple of one row to another (returns new matrix).
+
+    row[target] = row[target] + scalar * row[source]
+
+    Args:
+        matrix: The matrix.
+        target: Row to modify.
+        source: Row to add from.
+        scalar: Multiple to add.
+
+    Returns:
+        New matrix with row operation applied.
+    """
+    new_data = [row[:] for row in matrix.data]
+    
+    new_data[target] = [
+        new_data[target][col] + scalar * new_data[source][col]
+        for col in range(len(new_data[target]))
+    ]
+    return Matrix(new_data)
+
+def augment(left: Matrix, right: Matrix) -> Matrix:
+    """
+    Create augmented matrix [left | right].
+
+    Args:
+        left: Left matrix.
+        right: Right matrix (must have same number of rows).
+
+    Returns:
+        Augmented matrix with columns concatenated.
+    """
+    if left.rows != right.rows:
+        raise ValueError("Rows don't match")
+    return Matrix([left.get_row(i).components + right.get_row(i).components for i in range(left.rows) ])
+    
+def inverse_gauss_jordan(matrix: Matrix) -> Matrix:
+    """
+    Compute matrix inverse using Gauss-Jordan elimination.
+
+    Algorithm:
+    1. Augment [A | I]
+    2. Apply row operations to transform A to I
+    3. The right side becomes A⁻¹
+
+    Args:
+        matrix: An invertible square matrix.
+
+    Returns:
+        The inverse matrix.
+
+    Raises:
+        ValueError: If matrix is not invertible.
+
+    Complexity: O(n³) - much better than adjugate method!
+    """
+    n = matrix.rows
+    identity = matrix.identity(n)
+    aug = augment(matrix, identity)
+    
+    for j in range(n):
+        pivot_row = None
+        for row in range(j,n):
+            if aug.data[row][j] != 0:
+                pivot_row = row
+                break
+        if pivot_row is None:
+            raise ValueError("Matrix is singular")
+        if pivot_row != j:
+            aug = swap_rows(aug, j, pivot_row)
+        aug = scale_row(aug,j,1/aug.data[j][j])
+        for row in range(j+1,n):
+            aug = add_row_multiple(aug, row, j, -aug.data[row][j])
+    for j in range (n-1, 0, -1):
+        for i in range(0, j):
+            aug = add_row_multiple(aug, i, j, -aug.data[i][j])
+    return Matrix([row[n:] for row in aug.data])
+ 
+def inverse(matrix: Matrix) -> Matrix:
+    """
+    Compute matrix inverse (dispatcher function).
+
+    Uses efficient method based on matrix size:
+    - 2x2: Direct formula
+    - Larger: Gauss-Jordan elimination
+
+    Args:
+        matrix: An invertible square matrix.
+
+    Returns:
+        The inverse matrix.
+
+    Raises:
+        ValueError: If matrix is not square or not invertible.
+    """
+    if (matrix.rows != matrix.cols):
+        raise ValueError("Matrix not square")
+    if matrix.rows == 2:
+        return inverse_2x2(matrix)
+    else:
+        return inverse_gauss_jordan(matrix)
+
