@@ -9,4 +9,16 @@ services:
       - ./:/workspace
     environment:
       - JUPYTER_ENABLE_LAB=yes
-      - PYTHONPATH=/workspace
+      # python/src for 'from src.vector import Vector' style imports
+      - PYTHONPATH=/workspace/python
+    working_dir: /workspace
+
+  # Run tests with: docker compose run test
+  test:
+    build: .
+    volumes:
+      - ./:/workspace
+    environment:
+      - PYTHONPATH=/workspace/python
+    working_dir: /workspace/python
+    command: ["pytest", "tests/", "-v"]

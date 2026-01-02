@@ -12,7 +12,10 @@ from src.matrix import (Matrix,
  cofactor_matrix, adjugate,
  inverse, inverse_2x2, inverse_adjugate,
  inverse_gauss_jordan, swap_rows, scale_row,
- add_row_multiple, augment)
+ add_row_multiple, augment,forward_elimination,
+ back_substitution, solve_system, gaussian_elimination,
+ solve_with_inverse, rank, is_consistent
+)
 from src.vector import Vector
 
 
@@ -536,3 +539,130 @@ class TestInverseDispatcher:
             for j in range(3):
                 expected = 1 if i == j else 0
                 assert abs(product.data[i][j] - expected) < 1e-10
+
+class TestForwardElimination:
+    def test_simple_2x2(self):
+        # 2x + 3y = 8
+        # x - 2y = -3
+        augmented = Matrix([
+            [2, 3, 8],
+            [1, -2, -3]
+        ])
+        ref, rank = forward_elimination(augmented)
+        assert rank == 2  # Full rank
+
+    def test_rank_deficient(self):
+        # Rows are dependent
+        augmented = Matrix([
+            [1, 2, 3, 6],
+            [2, 4, 6, 12],
+            [1, 1, 1, 3]
+        ])
+        ref, rank = forward_elimination(augmented)
+        assert rank == 2  # Only 2 independent rows
+
+
+class TestBackSubstitution:
+    def test_simple_solution(self):
+        # Already in row echelon form
+        ref = Matrix([
+            [1, 2, 5],   # x + 2y = 5
+            [0, 1, 2]    # y = 2
+        ])
+        solution = back_substitution(ref, 2)
+        assert solution is not None
+        assert abs(solution[0] - 1) < 1e-10  # x = 1
+        assert abs(solution[1] - 2) < 1e-10  # y = 2
+
+
+class TestSolveSystem:
+    def test_unique_solution(self):
+        A = Matrix([[2, 3], [1, -2]])
+        b = [8, -3]
+        result = solve_system(A, b)
+        assert result['status'] == 'unique'
+        assert abs(result['solution'][0] - 1) < 1e-10  # x = 1
+        assert abs(result['solution'][1] - 2) < 1e-10  # y = 2
+
+    def test_inconsistent_system(self):
+        # Parallel lines
+        A = Matrix([[1, 1], [1, 1]])
+        b = [2, 3]  # Can't both be true
+        result = solve_system(A, b)
+        assert result['status'] == 'inconsistent'
+
+    def test_infinite_solutions(self):
+        # Same line twice
+        A = Matrix([[1, 1], [2, 2]])
+        b = [2, 4]  # Second is 2x first
+        result = solve_system(A, b)
+        assert result['status'] == 'infinite'
+
+    def test_3x3_system(self):
+        A = Matrix([
+            [1, 1, 1],
+            [0, 2, 5],
+            [2, 5, -1]
+        ])
+        b = [6, -4, 27]
+        result = solve_system(A, b)
+        assert result['status'] == 'unique'
+        # x=5, y=3, z=-2
+        x = result['solution']
+        assert abs(x[0] - 5) < 1e-10
+        assert abs(x[1] - 3) < 1e-10
+        assert abs(x[2] - (-2)) < 1e-10
+
+
+class TestGaussianElimination:
+    def test_basic(self):
+        A = Matrix([[2, 3], [1, -2]])
+        b = [8, -3]
+        x = gaussian_elimination(A, b)
+        assert abs(x[0] - 1) < 1e-10
+        assert abs(x[1] - 2) < 1e-10
+
+    def test_raises_on_singular(self):
+        A = Matrix([[1, 1], [1, 1]])
+        b = [2, 3]
+        with pytest.raises(ValueError):
+            gaussian_elimination(A, b)
+
+
+class TestSolveWithInverse:
+    def test_matches_gaussian(self):
+        A = Matrix([[2, 3], [1, -2]])
+        b = [8, -3]
+        x_gauss = gaussian_elimination(A, b)
+        x_inv = solve_with_inverse(A, b)
+        for i in range(len(x_gauss)):
+            assert abs(x_gauss[i] - x_inv[i]) < 1e-10
+
+
+class TestRank:
+    def test_full_rank(self):
+        A = Matrix([[1, 2], [3, 4]])
+        assert rank(A) == 2
+
+    def test_rank_deficient(self):
+        A = Matrix([[1, 2], [2, 4]])
+        assert rank(A) == 1
+
+    def test_rectangular(self):
+        A = Matrix([
+            [1, 2, 3],
+            [4, 5, 6]
+        ])
+        assert rank(A) == 2  # At most min(rows, cols)
+
+
+class TestConsistency:
+    def test_consistent(self):
+        A = Matrix([[1, 2], [3, 4]])
+        b = [5, 6]
+        assert is_consistent(A, b) == True
+
+    def test_inconsistent(self):
+        A = Matrix([[1, 1], [1, 1]])
+        b = [2, 3]
+        assert is_consistent(A, b) == False

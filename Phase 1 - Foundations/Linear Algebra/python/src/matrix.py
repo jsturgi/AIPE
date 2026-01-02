@@ -34,15 +34,18 @@ class Matrix:
             >>> m.rows, m.cols
             (2, 2)
         """
+        # Guard against empty input
         if not data or not data[0]:
             raise ValueError("Data Empty")
+
+        # Ensure all rows have same length (no jagged arrays)
         for row in data:
             if len(row) != len(data[0]):
                 raise ValueError("Jagged Array! All rows must be the same length.")
 
         self.data = data
-        self.rows = len(data)
-        self.cols = len(data[0])
+        self.rows = len(data)      # m dimension
+        self.cols = len(data[0])   # n dimension
     
     @property
     def shape(self) -> Tuple[int, int]:
@@ -121,10 +124,13 @@ class Matrix:
         Returns:
             Vector containing column values.
         """
+        # Bounds checking
         if j < 0:
             raise ValueError("index must be >= 0")
         if j > self.cols:
             raise ValueError("index out of bounds")
+
+        # Extract j-th element from each row to form column vector
         col_values = []
         for row in self.data:
             col_values.append(row[j])
@@ -143,16 +149,21 @@ class Matrix:
         Raises:
             ValueError: If shapes don't match.
         """
+        # Matrix addition requires identical dimensions
         if (self.cols != other.cols or self.rows != other.rows):
             raise ValueError("Inner Dimensions don't match. Invalid operation")
-        return Matrix([[x+y for x,y in zip(row_a, row_b)] 
+
+        # Element-wise addition: zip rows together, then zip elements within rows
+        return Matrix([[x+y for x,y in zip(row_a, row_b)]
             for row_a,row_b in zip(self.data, other.data)])
     
     def __sub__(self, other: 'Matrix') -> 'Matrix':
         """Subtract matrices element-wise."""
         if (self.cols != other.cols or self.rows != other.rows):
             raise ValueError("Inner Dimensions don't match. Invalid operation")
-        return Matrix([[x-y for x,y in zip(row_a, row_b)] 
+
+        # Element-wise subtraction
+        return Matrix([[x-y for x,y in zip(row_a, row_b)]
             for row_a,row_b in zip(self.data, other.data)])
     
     def __mul__(self, scalar: Union[int, float]) -> 'Matrix':
@@ -187,6 +198,7 @@ class Matrix:
         Raises:
             ValueError: If dimensions don't allow multiplication.
         """
+        # Dispatch to appropriate multiplication method based on operand type
         if isinstance(other, Vector):
             return self._matmul_vector(other)
         elif isinstance(other, Matrix):
@@ -214,8 +226,11 @@ class Matrix:
             - Result has self.rows elements
             - result[i] = dot(row_i, v)
         """
+        # Vector dimension must match number of columns
         if v.dimension != self.cols:
             raise ValueError("Dimensions don't match")
+
+        # Each output element is dot product of corresponding row with input vector
         return Vector([v.dot(Vector(row)) for row in self.data])
 
     def _matmul_matrix(self, other: 'Matrix') -> 'Matrix':
@@ -237,8 +252,12 @@ class Matrix:
             - Result has self.rows rows and other.cols columns
             - Each element is a dot product
         """
+        # Inner dimensions must match: (m×n) @ (n×p) = (m×p)
         if self.cols != other.rows:
             raise ValueError("Dimensions don't match")
+
+        # Column-wise approach: each result column is A times corresponding column of B
+        # This leverages matrix-vector multiplication we already implemented
         columns = [self @ other.get_column(j) for j in range(other.cols)]
         return Matrix.from_column_vectors(columns)
     
@@ -251,6 +270,7 @@ class Matrix:
 
         The element at [i,j] in original becomes [j,i] in transpose.
         """
+        # Each column of original becomes a row in transpose
         return Matrix([self.get_column(i).components for i in range(self.cols)])
     
     @staticmethod
@@ -264,12 +284,12 @@ class Matrix:
         Returns:
             Identity matrix with 1s on diagonal, 0s elsewhere.
         """
+        # Diagonal elements (i==j) are 1, all others are 0
         return Matrix([[1 if i == j else 0 for j in range(n)] for i in range(n)])
     
     @staticmethod
     def zeros(rows: int, cols: int) -> 'Matrix':
         """Create matrix of zeros."""
-        # TODO: Return matrix filled with zeros
         return Matrix([[0]*cols for _ in range(rows)])
     
     @staticmethod
@@ -285,9 +305,13 @@ class Matrix:
 
         This is the "columns view" of a matrix.
         """
+        # All vectors must have same dimension to form valid matrix
         for vec in vectors:
             if vec.dimension != vectors[0].dimension:
                 raise ValueError("Vectors must have same dimension")
+
+        # zip(*...) transposes: columns become rows
+        # Each vector's components become a column in the resulting matrix
         return Matrix([list(row) for row in zip(*[vec.components for vec in vectors])])
     
     
@@ -309,11 +333,15 @@ def rotation_matrix(angle_degrees: float) -> Matrix:
 
     The columns are where [1,0] and [0,1] land after rotation.
     """
+    # Convert degrees to radians for trig functions
     radians = math.radians(angle_degrees)
+
+    # Row 1: how x-component transforms
     r1 = [math.cos(radians), -math.sin(radians)]
+    # Row 2: how y-component transforms
     r2 = [math.sin(radians), math.cos(radians)]
-    
-    return Matrix([r1,r2])
+
+    return Matrix([r1, r2])
 
 def scaling_matrix(sx: float, sy: float) -> Matrix:
     """
@@ -406,7 +434,11 @@ def compose(*matrices: Matrix) -> Matrix:
         compose(A, B, C) applies A first, then B, then C.
         Mathematically: C @ B @ A
     """
+    # Start with last matrix (rightmost in multiplication order)
     toReturn = matrices[-1]
+
+    # Multiply from right to left: result = Mn @ ... @ M2 @ M1
+    # This gives left-to-right application order when transforming vectors
     for m in reversed(matrices[:-1]):
         toReturn = toReturn @ m
     return toReturn
@@ -428,13 +460,17 @@ def determinant_2x2(matrix: Matrix) -> float:
         [ a  b ]
         [ c  d ] → ad - bc
     """
+    # Determinant only defined for square matrices
     if matrix.rows != matrix.cols:
         raise ValueError("Not a square matrix. Determinant cannot be computed.")
     if matrix.rows != 2:
         raise ValueError("Only supports 2x2 Matrices.")
-    a,b = matrix.data[0]
-    c,d = matrix.data[1]
 
+    # Extract elements
+    a, b = matrix.data[0]
+    c, d = matrix.data[1]
+
+    # Cross-multiply: main diagonal minus anti-diagonal
     return a*d - b*c
 
 
@@ -460,10 +496,14 @@ def determinant_3x3(matrix: Matrix) -> float:
         [ d  e  f ]
         [ g  h  i ]
     """
-    a,b,c = matrix.data[0]
-    d,e,f = matrix.data[1]
-    g,h,i = matrix.data[2]
-    return a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g)
+    # Extract all 9 elements
+    a, b, c = matrix.data[0]
+    d, e, f = matrix.data[1]
+    g, h, i = matrix.data[2]
+
+    # Cofactor expansion along first row:
+    # +a * det(2x2 minor) - b * det(2x2 minor) + c * det(2x2 minor)
+    return a*(e*i - f*h) - b*(d*i - f*g) + c*(d*h - e*g)
 
 def minor(matrix: Matrix, row: int, col: int) -> Matrix:
     """
@@ -482,8 +522,9 @@ def minor(matrix: Matrix, row: int, col: int) -> Matrix:
     """
     toReturn = []
     for i in range(matrix.rows):
-        toAppend = []
+        # Skip the row we're removing
         if i != row:
+            # Get row as list and remove the specified column
             toAppend = matrix.get_row(i).components
             toAppend.pop(col)
             toReturn.append(toAppend)
@@ -503,54 +544,86 @@ def cofactor(matrix: Matrix, row: int, col: int) -> float:
     Returns:
         The cofactor value.
     """
+    # Get the (n-1)×(n-1) submatrix with row and col removed
     matMinor = minor(matrix, row, col)
+
+    # Compute determinant of the minor
     minorDet = determinant(matMinor)
+
+    # Apply checkerboard sign pattern: + - + - ...
+    # Sign is positive when (row+col) is even, negative when odd
     return (-1)**(row+col) * minorDet
     
 def determinant(matrix: Matrix):
         """
-        Computes determinant
+        Computes determinant using optimized method based on matrix size.
+
+        Uses direct formulas for 1x1, 2x2, 3x3 matrices.
+        Uses row reduction (Gaussian elimination) for larger matrices - O(n³).
         """
-       
+        # Determinant only defined for square matrices
         if matrix.cols != matrix.rows:
             raise ValueError("Not a square matrix. Determinant cannot be computed.")
+
         match matrix.rows:
             case 1:
+                # 1x1: determinant is the single element
                 return matrix.data[0][0]
+
             case 2:
-                a,b = matrix.data[0]
-                c,d = matrix.data[1]
+                # 2x2: ad - bc formula
+                a, b = matrix.data[0]
+                c, d = matrix.data[1]
                 return a*d - b*c
+
             case 3:
-                a,b,c = matrix.data[0]
-                d,e,f = matrix.data[1]
-                g,h,i = matrix.data[2]
-                return a*(e*i-f*h) - b*(d*i-f*g) + c*(d*h-e*g)
-            case _: # row reduction
+                # 3x3: cofactor expansion along first row
+                a, b, c = matrix.data[0]
+                d, e, f = matrix.data[1]
+                g, h, i = matrix.data[2]
+                return a*(e*i - f*h) - b*(d*i - f*g) + c*(d*h - e*g)
+
+            case _:
+                # n×n (n > 3): Use row reduction to upper triangular form
+                # det(A) = (-1)^swaps * product of diagonal elements
                 swaps = 0
                 matrix_cp = [row.copy() for row in matrix.data]
-                for i in range(matrix.cols-1):
-                    if not matrix_cp[i][i]: #zero pivot
+
+                # Forward elimination: reduce to upper triangular
+                for i in range(matrix.cols - 1):
+                    # Handle zero pivot by swapping with row below
+                    if not matrix_cp[i][i]:
                         row_swap = None
-                        for k in range(i+1, matrix.rows): #search rows below pivot
+                        # Search for non-zero element in column below pivot
+                        for k in range(i + 1, matrix.rows):
                             if matrix_cp[k][i]:
                                 row_swap = k
                                 break
+
                         if not row_swap:
-                            return 0 # all zeros, det 0
+                            # Entire column is zero -> det = 0
+                            return 0
+
+                        # Swap rows (changes sign of determinant)
                         matrix_cp[row_swap], matrix_cp[i] = matrix_cp[i], matrix_cp[row_swap]
-                        swaps+=1
-                    for j in range(i+1, matrix.rows):
+                        swaps += 1
+
+                    # Eliminate entries below pivot
+                    for j in range(i + 1, matrix.rows):
                         multiplier = matrix_cp[j][i] / matrix_cp[i][i]
                         for col in range(matrix.cols):
-                            matrix_cp[j][col] = matrix_cp[j][col] - multiplier*matrix_cp[i][col]
+                            matrix_cp[j][col] = matrix_cp[j][col] - multiplier * matrix_cp[i][col]
+
+                # Determinant = product of diagonal (for upper triangular matrix)
                 det = 1
                 for i in range(matrix.cols):
                     det = det * matrix_cp[i][i]
+
+                # Each row swap negates the determinant
                 if swaps % 2 == 0:
                     return det
                 else:
-                    return det*-1
+                    return det * -1
 def is_invertible(matrix: Matrix) -> bool:
     """
     Check if a matrix is invertible.
@@ -565,6 +638,9 @@ def is_invertible(matrix: Matrix) -> bool:
     """
     det = determinant(matrix)
     tolerance = 1e-10
+
+    # Matrix is invertible iff determinant is non-zero
+    # Use tolerance to handle floating point precision
     return abs(det) > tolerance
 
 def cofactor_matrix(matrix: Matrix) -> Matrix:
@@ -579,7 +655,8 @@ def cofactor_matrix(matrix: Matrix) -> Matrix:
     Returns:
         The cofactor matrix.
     """
-    mat_copy = [row.copy() for row in matrix.data]
+    # Build matrix where each element is replaced by its cofactor
+    # C[i,j] = (-1)^(i+j) * det(minor(i,j))
     mat_copy = [[cofactor(matrix, i, j) for j in range(matrix.cols)] for i in range(matrix.rows)]
     return Matrix(mat_copy)
 
@@ -597,6 +674,8 @@ def adjugate(matrix: Matrix) -> Matrix:
 
     Note: A⁻¹ = adjugate(A) / det(A)
     """
+    # Adjugate is the transpose of the cofactor matrix
+    # Used in the formula: A⁻¹ = adj(A) / det(A)
     return cofactor_matrix(matrix).transpose()
 
 def inverse_adjugate(matrix: Matrix) -> Matrix:
@@ -618,10 +697,13 @@ def inverse_adjugate(matrix: Matrix) -> Matrix:
     """
     det = determinant(matrix)
     tolerance = 1e-10
-    
+
+    # Check invertibility
     if abs(det) < tolerance:
         raise ValueError("Matrix is not invertible (det = 0")
-    
+
+    # A⁻¹ = (1/det(A)) * adj(A)
+    # Each element of adjugate is scaled by 1/det
     return ((1/det) * adjugate(matrix))
 
 def inverse_2x2(matrix: Matrix) -> Matrix:
@@ -639,14 +721,21 @@ def inverse_2x2(matrix: Matrix) -> Matrix:
     Raises:
         ValueError: If not 2x2 or not invertible.
     """
+    # Validate 2x2 size
     if (matrix.rows != 2) and (matrix.cols != 2):
         raise ValueError("Matrix must be 2x2.")
     if not is_invertible(matrix):
         raise ValueError("Matrix is not invertible")
+
     det = determinant_2x2(matrix)
-    a,b = matrix.data[0]
-    c,d = matrix.data[1]
-    inverse = [[d,-b],[-c,a]]
+
+    # Extract elements
+    a, b = matrix.data[0]
+    c, d = matrix.data[1]
+
+    # Direct formula: swap a,d and negate b,c, then scale by 1/det
+    # [[a,b],[c,d]]⁻¹ = (1/det) * [[d,-b],[-c,a]]
+    inverse = [[d, -b], [-c, a]]
     return (1/det) * Matrix(inverse)
     
 def swap_rows(matrix: Matrix, i: int, j: int) -> Matrix:
@@ -660,9 +749,10 @@ def swap_rows(matrix: Matrix, i: int, j: int) -> Matrix:
     Returns:
         New matrix with rows swapped.
     """
+    # Deep copy to avoid mutating original
     new_data = [row[:] for row in matrix.data]
 
-    # Swap rows i and j
+    # Swap rows i and j using tuple unpacking
     new_data[i], new_data[j] = new_data[j], new_data[i]
 
     return Matrix(new_data)
@@ -680,10 +770,12 @@ def scale_row(matrix: Matrix, i: int, scalar: float) -> Matrix:
     Returns:
         New matrix with row scaled.
     """
+    # Deep copy to avoid mutating original
     new_data = [row[:] for row in matrix.data]
-    
+
+    # Multiply every element in row i by scalar
     new_data[i] = [val * scalar for val in new_data[i]]
-    
+
     return Matrix(new_data)
 
 
@@ -702,8 +794,11 @@ def add_row_multiple(matrix: Matrix, target: int, source: int, scalar: float) ->
     Returns:
         New matrix with row operation applied.
     """
+    # Deep copy to avoid mutating original
     new_data = [row[:] for row in matrix.data]
-    
+
+    # target_row = target_row + scalar * source_row
+    # This is the key operation for elimination (use scalar = -multiplier)
     new_data[target] = [
         new_data[target][col] + scalar * new_data[source][col]
         for col in range(len(new_data[target]))
@@ -721,9 +816,12 @@ def augment(left: Matrix, right: Matrix) -> Matrix:
     Returns:
         Augmented matrix with columns concatenated.
     """
+    # Must have same number of rows to augment
     if left.rows != right.rows:
         raise ValueError("Rows don't match")
-    return Matrix([left.get_row(i).components + right.get_row(i).components for i in range(left.rows) ])
+
+    # Concatenate each row: [left_row | right_row]
+    return Matrix([left.get_row(i).components + right.get_row(i).components for i in range(left.rows)])
     
 def inverse_gauss_jordan(matrix: Matrix) -> Matrix:
     """
@@ -746,25 +844,46 @@ def inverse_gauss_jordan(matrix: Matrix) -> Matrix:
     Complexity: O(n³) - much better than adjugate method!
     """
     n = matrix.rows
+
+    # Create augmented matrix [A | I]
+    # Goal: transform to [I | A⁻¹]
     identity = matrix.identity(n)
     aug = augment(matrix, identity)
-    
+
+    # === FORWARD ELIMINATION ===
+    # Transform left side to upper triangular with 1s on diagonal
     for j in range(n):
+        # Find pivot: first non-zero element in column j, rows >= j
         pivot_row = None
-        for row in range(j,n):
+        for row in range(j, n):
             if aug.data[row][j] != 0:
                 pivot_row = row
                 break
+
+        # No pivot found means matrix is singular (not invertible)
         if pivot_row is None:
             raise ValueError("Matrix is singular")
+
+        # Swap pivot row to diagonal position if needed
         if pivot_row != j:
             aug = swap_rows(aug, j, pivot_row)
-        aug = scale_row(aug,j,1/aug.data[j][j])
-        for row in range(j+1,n):
+
+        # Scale row to make pivot = 1
+        aug = scale_row(aug, j, 1/aug.data[j][j])
+
+        # Eliminate entries below pivot (make them 0)
+        for row in range(j + 1, n):
             aug = add_row_multiple(aug, row, j, -aug.data[row][j])
-    for j in range (n-1, 0, -1):
+
+    # === BACKWARD ELIMINATION ===
+    # Eliminate entries above each pivot (already 1s on diagonal)
+    # Work from bottom-right to top-left
+    for j in range(n - 1, 0, -1):
         for i in range(0, j):
+            # Eliminate entry at (i, j) by subtracting multiple of row j
             aug = add_row_multiple(aug, i, j, -aug.data[i][j])
+
+    # Extract right half of augmented matrix (the inverse)
     return Matrix([row[n:] for row in aug.data])
  
 def inverse(matrix: Matrix) -> Matrix:
@@ -784,10 +903,279 @@ def inverse(matrix: Matrix) -> Matrix:
     Raises:
         ValueError: If matrix is not square or not invertible.
     """
+    # Only square matrices can be inverted
     if (matrix.rows != matrix.cols):
         raise ValueError("Matrix not square")
+
+    # Use direct formula for 2x2 (slightly faster)
+    # Use Gauss-Jordan for all other sizes
     if matrix.rows == 2:
         return inverse_2x2(matrix)
     else:
         return inverse_gauss_jordan(matrix)
+
+def copy_matrix(matrix: Matrix) -> Matrix:
+    """Create a deep copy of a matrix."""
+    # row[:] creates a shallow copy of each row list
+    return Matrix([row[:] for row in matrix.data])
+
+def forward_elimination(augmented: Matrix) -> tuple[Matrix, int]:
+    """
+    Perform forward elimination to get row echelon form.
+
+    Args:
+        augmented: The augmented matrix [A | b].
+
+    Returns:
+        Tuple of (row echelon form, rank).
+
+    Algorithm:
+        For each column j (as pivot column):
+            1. Find pivot: largest |value| in column j, rows >= j
+            2. Swap pivot row to row j
+            3. If pivot is 0 (or near 0), skip column (rank doesn't increase)
+            4. Eliminate below: make all entries below pivot zero
+    """
+    A = copy_matrix(augmented)
+    rows = A.rows
+    # Only process coefficient columns (exclude augmented b column)
+    pivot_cols = min(A.rows, A.cols - 1)
+    rank = 0
+
+    for j in range(pivot_cols):
+        # === PARTIAL PIVOTING ===
+        # Find largest absolute value in column j (rows >= j)
+        # This improves numerical stability
+        pivot = 0
+        pivot_row = None
+        for row in range(j, rows):
+            if abs(A.data[row][j]) > abs(pivot):
+                pivot = A.data[row][j]
+                pivot_row = row
+
+        # Non-zero pivot found means we have a pivot column
+        if pivot:
+            rank += 1
+
+        # If we found a valid pivot, perform elimination
+        if pivot_row is not None:
+            # Swap largest element to pivot position
+            A = swap_rows(A, j, pivot_row)
+
+            # Eliminate entries below pivot
+            for row in range(j + 1, rows):
+                # multiplier = entry / pivot, subtract to zero out entry
+                A = add_row_multiple(A, row, j, -A.data[row][j] / A.data[j][j])
+
+    return (A, rank)
+
+def back_substitution(row_echelon: Matrix, rank: int) -> list[float] | None:
+    """
+    Perform back substitution on row echelon form.
+
+    Args:
+        row_echelon: Matrix in row echelon form [A | b].
+        rank: The rank of the coefficient matrix.
+
+    Returns:
+        Solution vector if unique solution exists.
+        None if no solution or infinite solutions.
+
+    Algorithm:
+        Starting from last pivot row, work upward:
+        1. x[i] = (b[i] - sum of known terms) / pivot
+    """
+    rows = row_echelon.rows
+    cols = row_echelon.cols
+    A = copy_matrix(row_echelon)
+    n = cols - 1  # Number of variables (last column is b)
+    x = [0.0] * n  # Solution vector
+
+    # Check for inconsistency: [0 0 ... 0 | nonzero] means no solution
+    for row in row_echelon.data:
+        if all(abs(val) < 1e-10 for val in row[:-1]) and abs(row[-1]) > 1e-10:
+            return None  # Inconsistent system
+
+    # Underdetermined system: more unknowns than equations with non-zero rows
+    if rank < n:
+        return None  # Infinite solutions
+
+    # Back substitution: solve from bottom row up
+    # For row i: a[i,i]*x[i] + a[i,i+1]*x[i+1] + ... = b[i]
+    # So: x[i] = (b[i] - sum(a[i,j]*x[j] for j>i)) / a[i,i]
+    for i in range(rank - 1, -1, -1):
+        # b[i] is in last column, subtract known terms, divide by pivot
+        x[i] = (row_echelon.data[i][-1] - sum(A.data[i][j] * x[j]
+            for j in range(i + 1, n))) / A.data[i][i]
+
+    return x
+
+def solve_system(A: Matrix, b: list[float]) -> dict:
+    """
+    Solve the linear system Ax = b.
+
+    Args:
+        A: Coefficient matrix (m x n).
+        b: Right-hand side vector (m elements).
+
+    Returns:
+        Dictionary with:
+            'status': 'unique', 'infinite', or 'inconsistent'
+            'solution': The solution vector (if unique)
+            'rank': Rank of A
+            'augmented_rref': The reduced row echelon form
+
+    Example:
+        A = [[2, 3], [1, -2]]
+        b = [8, -3]
+        result = solve_system(A, b)
+        # result['solution'] = [1, 2]  (x=1, y=2)
+    """
+    # Validate dimensions
+    if A.rows != len(b):
+        raise ValueError(f"Dimension mismatch: A has {A.rows} rows but b has {len(b)} elements")
+
+    # Create augmented matrix [A | b]
+    b_matrix = Matrix([[val] for val in b])
+    augmented = augment(A, b_matrix)
+
+    # Perform forward elimination
+    row_echelon, rank = forward_elimination(augmented)
+
+    n = A.cols  # Number of variables
+
+    # Check for inconsistency: row with all zeros in A part but non-zero in b part
+    for row in row_echelon.data:
+        if all(abs(val) < 1e-10 for val in row[:-1]) and abs(row[-1]) > 1e-10:
+            return {
+                'status': 'inconsistent',
+                'solution': None,
+                'rank': rank,
+                'augmented_rref': row_echelon
+            }
+
+    # Check for infinite solutions: rank < number of variables
+    if rank < n:
+        return {
+            'status': 'infinite',
+            'solution': None,
+            'rank': rank,
+            'augmented_rref': row_echelon
+        }
+
+    # Unique solution: perform back substitution
+    solution = back_substitution(row_echelon, rank)
+
+    return {
+        'status': 'unique',
+        'solution': solution,
+        'rank': rank,
+        'augmented_rref': row_echelon
+    }
+    
+def gaussian_elimination(A: Matrix, b: list[float]) -> list[float]:
+    """
+    Solve Ax = b using Gaussian elimination with partial pivoting.
+
+    Args:
+        A: Square coefficient matrix.
+        b: Right-hand side vector.
+
+    Returns:
+        Solution vector x.
+
+    Raises:
+        ValueError: If system has no unique solution.
+
+    This is a convenience function that calls solve_system
+    and raises if solution is not unique.
+    """
+    # Delegate to solve_system for the heavy lifting
+    result = solve_system(A, b)
+
+    # Only return solution for unique case; raise for infinite/inconsistent
+    if result['status'] != 'unique':
+        raise ValueError(f"System has {result['status']} solution(s)")
+    return result['solution']
+
+def rank(matrix: Matrix) -> int:
+    """
+    Compute the rank of a matrix.
+
+    Rank = number of linearly independent rows
+         = number of pivots in row echelon form
+
+    Args:
+        matrix: Any matrix.
+
+    Returns:
+        The rank (integer).
+    """
+    # Add zero column to make it like an augmented matrix
+    augmented = augment(matrix, Matrix([[0] for _ in range(matrix.rows)]))
+    _, r = forward_elimination(augmented)
+    return r
+    
+def is_consistent(A: Matrix, b: list[float]) -> bool:
+    """
+    Check if the system Ax = b has at least one solution.
+
+    A system is consistent if rank(A) = rank([A|b]).
+
+    Args:
+        A: Coefficient matrix.
+        b: Right-hand side vector.
+
+    Returns:
+        True if at least one solution exists.
+    """
+    # Compute rank a
+    rankA = rank(A) 
+    # compute rank Ab
+    rankAb = solve_system(A,b)['rank']
+    return rankA == rankAb
+
+def solution_type(A: Matrix, b: list[float]) -> str:
+    """
+    Determine the type of solution for Ax = b.
+
+    Returns:
+        'unique': Exactly one solution
+        'infinite': Infinitely many solutions
+        'inconsistent': No solution
+
+    Logic:
+        - If rank(A) < rank([A|b]): inconsistent
+        - If rank(A) = rank([A|b]) = n (variables): unique
+        - If rank(A) = rank([A|b]) < n: infinite
+    """
+    rankA = rank(A)
+    rankAb = solve_system(A,b)['rank']
+    if rankA < rankAb:
+        return 'inconsistent'
+    if rankA == rankAb == A.cols:
+        return 'unique'
+    if rankA == rankAb and rankA < A.cols:
+        return 'infinite'
+
+def solve_with_inverse(A: Matrix, b: list[float]) -> list[float]:
+    """
+    Solve Ax = b using matrix inverse: x = A⁻¹b.
+
+    Args:
+        A: Invertible square matrix.
+        b: Right-hand side vector.
+
+    Returns:
+        Solution vector x.
+
+    Note: This is less efficient than Gaussian elimination
+    but useful for solving multiple systems with same A.
+    """
+    # Compute A inverse (raises if singular)
+    A_inv = inverse(A)
+
+    # x = A⁻¹ @ b: matrix-vector multiplication gives solution
+    result = A_inv @ Vector(b)
+    return result.components
 
