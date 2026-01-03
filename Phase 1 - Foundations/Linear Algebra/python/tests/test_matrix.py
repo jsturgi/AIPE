@@ -1,20 +1,22 @@
 """Tests for Matrix class."""
 import pytest
-from src.matrix import (Matrix, 
+from src.matrix import (Matrix,
     rotation_matrix,
     shear_matrix,
     scaling_matrix,
     reflection_matrix,
     projection_matrix,
     compose, determinant,
- determinant_2x2, determinant_3x3, 
+ determinant_2x2, determinant_3x3,
  is_invertible, minor, cofactor,
  cofactor_matrix, adjugate,
  inverse, inverse_2x2, inverse_adjugate,
  inverse_gauss_jordan, swap_rows, scale_row,
  add_row_multiple, augment,forward_elimination,
  back_substitution, solve_system, gaussian_elimination,
- solve_with_inverse, rank, is_consistent
+ solve_with_inverse, rank, is_consistent,
+ lu_decomposition, plu_decomposition, solve_lu, solve_multiple_systems,
+ forward_substitution, backward_substitution
 )
 from src.vector import Vector
 
@@ -666,3 +668,165 @@ class TestConsistency:
         A = Matrix([[1, 1], [1, 1]])
         b = [2, 3]
         assert is_consistent(A, b) == False
+
+
+class TestLUDecomposition:
+    def test_lu_basic(self):
+        A = Matrix([[2, 1], [4, 3]])
+        L, U = lu_decomposition(A)
+        # Verify L is lower triangular with 1s on diagonal
+        assert L.data[0][0] == 1
+        assert L.data[1][1] == 1
+        assert L.data[0][1] == 0
+        # Verify L @ U = A
+        product = L @ U
+        for i in range(2):
+            for j in range(2):
+                assert abs(product.data[i][j] - A.data[i][j]) < 1e-10
+
+    def test_lu_3x3(self):
+        A = Matrix([[1, 2, 3], [4, 5, 6], [7, 8, 10]])
+        L, U = lu_decomposition(A)
+        product = L @ U
+        for i in range(3):
+            for j in range(3):
+                assert abs(product.data[i][j] - A.data[i][j]) < 1e-10
+
+
+class TestPLUDecomposition:
+    def test_plu_basic(self):
+        A = Matrix([[2, 1, 1], [4, 3, 3], [8, 7, 9]])
+        P, L, U = plu_decomposition(A)
+        # Verify PA = LU
+        PA = P @ A
+        LU = L @ U
+        for i in range(3):
+            for j in range(3):
+                assert abs(PA.data[i][j] - LU.data[i][j]) < 1e-10
+
+    def test_plu_needs_pivoting(self):
+        # Matrix that would fail without pivoting (zero in pivot position)
+        A = Matrix([[0, 1], [1, 1]])
+        P, L, U = plu_decomposition(A)
+        PA = P @ A
+        LU = L @ U
+        for i in range(2):
+            for j in range(2):
+                assert abs(PA.data[i][j] - LU.data[i][j]) < 1e-10
+
+
+class TestForwardSubstitution:
+    def test_simple(self):
+        # L is lower triangular with 1s on diagonal
+        L = Matrix([[1, 0], [2, 1]])
+        b = [3, 8]
+        # Ly = b: y[0] = 3, y[1] = 8 - 2*3 = 2
+        y = forward_substitution(L, b)
+        assert abs(y[0] - 3) < 1e-10
+        assert abs(y[1] - 2) < 1e-10
+
+    def test_3x3(self):
+        L = Matrix([[1, 0, 0], [2, 1, 0], [3, 4, 1]])
+        b = [1, 4, 15]
+        y = forward_substitution(L, b)
+        # y[0] = 1
+        # y[1] = 4 - 2*1 = 2
+        # y[2] = 15 - 3*1 - 4*2 = 15 - 3 - 8 = 4
+        assert abs(y[0] - 1) < 1e-10
+        assert abs(y[1] - 2) < 1e-10
+        assert abs(y[2] - 4) < 1e-10
+
+
+class TestBackwardSubstitution:
+    def test_simple(self):
+        U = Matrix([[2, 1], [0, 3]])
+        y = [5, 6]
+        # Ux = y: x[1] = 6/3 = 2, x[0] = (5 - 1*2)/2 = 1.5
+        x = backward_substitution(U, y)
+        assert abs(x[0] - 1.5) < 1e-10
+        assert abs(x[1] - 2) < 1e-10
+
+    def test_3x3(self):
+        U = Matrix([[1, 2, 3], [0, 4, 5], [0, 0, 6]])
+        y = [14, 17, 12]
+        x = backward_substitution(U, y)
+        # x[2] = 12/6 = 2
+        # x[1] = (17 - 5*2)/4 = 7/4 = 1.75
+        # x[0] = (14 - 2*1.75 - 3*2)/1 = 14 - 3.5 - 6 = 4.5
+        assert abs(x[2] - 2) < 1e-10
+        assert abs(x[1] - 1.75) < 1e-10
+        assert abs(x[0] - 4.5) < 1e-10
+
+
+class TestSolveLU:
+    def test_solve_with_plu(self):
+        A = Matrix([[2, 1, 1], [4, 3, 3], [8, 7, 9]])
+        b = [4, 10, 26]
+        P, L, U = plu_decomposition(A)
+        x = solve_lu(L, U, b, P)
+        # Verify Ax = b
+        result = A @ Vector(x)
+        for i in range(3):
+            assert abs(result.components[i] - b[i]) < 1e-10
+
+    def test_solve_without_permutation(self):
+        # Matrix that doesn't need pivoting
+        A = Matrix([[2, 1], [4, 3]])
+        b = [3, 7]
+        L, U = lu_decomposition(A)
+        x = solve_lu(L, U, b)
+        # Verify Ax = b
+        result = A @ Vector(x)
+        for i in range(2):
+            assert abs(result.components[i] - b[i]) < 1e-10
+
+    def test_solve_3x3(self):
+        A = Matrix([
+            [1, 1, 1],
+            [0, 2, 5],
+            [2, 5, -1]
+        ])
+        b = [6, -4, 27]
+        P, L, U = plu_decomposition(A)
+        x = solve_lu(L, U, b, P)
+        # Expected: x=5, y=3, z=-2
+        assert abs(x[0] - 5) < 1e-10
+        assert abs(x[1] - 3) < 1e-10
+        assert abs(x[2] - (-2)) < 1e-10
+
+
+class TestSolveMultipleSystems:
+    def test_multiple_rhs(self):
+        A = Matrix([[2, 1, 1], [4, 3, 3], [8, 7, 9]])
+        b1 = [4, 10, 26]
+        b2 = [1, 2, 5]
+        b3 = [3, 7, 17]
+
+        solutions = solve_multiple_systems(A, [b1, b2, b3])
+
+        # Verify each solution
+        for i, b in enumerate([b1, b2, b3]):
+            result = A @ Vector(solutions[i])
+            for j in range(3):
+                assert abs(result.components[j] - b[j]) < 1e-10
+
+    def test_single_rhs(self):
+        A = Matrix([[2, 3], [1, -2]])
+        b = [8, -3]
+        solutions = solve_multiple_systems(A, [b])
+        # Expected: x=1, y=2
+        assert abs(solutions[0][0] - 1) < 1e-10
+        assert abs(solutions[0][1] - 2) < 1e-10
+
+    def test_efficiency_same_result_as_gaussian(self):
+        """Verify solve_multiple_systems gives same result as gaussian_elimination"""
+        A = Matrix([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 10]
+        ])
+        b = [14, 32, 53]
+        x_gauss = gaussian_elimination(A, b)
+        x_multi = solve_multiple_systems(A, [b])[0]
+        for i in range(3):
+            assert abs(x_gauss[i] - x_multi[i]) < 1e-10

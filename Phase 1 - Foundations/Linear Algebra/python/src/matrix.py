@@ -1179,3 +1179,266 @@ def solve_with_inverse(A: Matrix, b: list[float]) -> list[float]:
     result = A_inv @ Vector(b)
     return result.components
 
+def lu_decomposition(matrix: Matrix) -> tuple[Matrix, Matrix]:
+    """
+    Compute LU decomposition without pivoting.
+
+    A = L @ U where:
+    - L is lower triangular with 1s on diagonal
+    - U is upper triangular
+
+    Args:
+        matrix: Square matrix to decompose.
+
+    Returns:
+        Tuple (L, U).
+
+    Raises:
+        ValueError: If matrix is not square.
+        ValueError: If decomposition fails (needs pivoting).
+
+    Algorithm (Doolittle):
+        For k = 0 to n-1:
+            For j = k to n-1:
+                U[k,j] = A[k,j] - sum(L[k,s] * U[s,j] for s < k)
+            For i = k+1 to n-1:
+                L[i,k] = (A[i,k] - sum(L[i,s] * U[s,k] for s < k)) / U[k,k]
+
+    Note: This version doesn't pivot. For numerical stability,
+    use plu_decomposition instead.
+    """
+    n = matrix.rows
+    A = [row[:] for row in matrix.data]
+    if matrix.rows != matrix.cols:
+        raise ValueError("Matrix must be square")
+
+    # Initialize L as identity, U as zeros
+    L = [[1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
+    U = [[0.0 for j in range(n)] for i in range(n)]
+    
+    for k in range(n):
+        for j in range(k,n):
+            U[k][j] = A[k][j] #k of U is k of A after elimination
+        if abs(A[k][k]) < 1e-10: #zero pivot
+            raise ValueError("Zero Pivot encountered. Needs pivoting")
+        for i in range(k+1, n): # i > k
+            L[i][k] = A[i][k] / A[k][k] #L[row][col] where row > col
+            for j in range(k,n):
+                A[i][j] = A[i][j] - L[i][k] * A[k][j]
+    return (Matrix(L), Matrix(U))
+    
+def plu_decomposition(matrix: Matrix) -> tuple[Matrix, Matrix, Matrix]:
+    """
+    Compute PLU decomposition with partial pivoting.
+
+    PA = LU where:
+    - P is permutation matrix (row swaps)
+    - L is lower triangular with 1s on diagonal
+    - U is upper triangular
+
+    Args:
+        matrix: Square matrix to decompose.
+
+    Returns:
+        Tuple (P, L, U).
+
+    Raises:
+        ValueError: If matrix is singular.
+
+    Algorithm:
+        Modified Doolittle with row pivoting at each step.
+        P starts as identity and records all swaps.
+    """
+    n = matrix.rows
+    if matrix.rows != matrix.cols:
+        raise ValueError("Matrix must be square")
+
+    # Working copy of A
+    A = [row[:] for row in matrix.data]
+
+    # Initialize P as identity (stored as permutation vector)
+    perm = list(range(n))
+
+    # Initialize L and U
+    L = [[0.0 for j in range(n)] for i in range(n)]
+    U = [[0.0 for j in range(n)] for i in range(n)]
+    
+    for k in range(n):
+        pivot = 0
+        pivot_row = None
+        for row in range(k, n):
+            if abs(A[row][k]) > abs(pivot):
+                pivot = A[row][k]
+                pivot_row = row
+        if abs(pivot) < 1e-10:
+            raise ValueError("Matrix is Singular")
+        if (pivot_row != k) and (pivot_row is not None):
+            A[k], A[pivot_row] = A[pivot_row], A[k]
+            perm[k], perm[pivot_row] = perm[pivot_row], perm[k]
+            L[k], L[pivot_row] = L[pivot_row], L[k]
+        L[k][k]= 1.0
+            
+        
+        for j in range(k,n):
+            U[k][j] = A[k][j] #k of U is k of A after elimination
+       
+        for i in range(k+1, n): # i > k
+            L[i][k] = A[i][k] / A[k][k] #L[row][col] where row > col
+            for j in range(k,n):
+                A[i][j] = A[i][j] - L[i][k] * A[k][j]
+    perm = permutation_matrix(perm)
+    return (perm, Matrix(L), Matrix(U))
+
+
+    # TODO: For each column k:
+    #   1. Find pivot (max |A[i,k]| for i >= k)
+    #   2. Swap rows in A and perm
+    #   3. Check for zero pivot (singular)
+    #   4. Compute L entries for column k
+    #   5. Eliminate below pivot
+    #   6. U[k,:] = current row k of A
+
+    # TODO: Build permutation matrix from perm vector
+    # TODO: Extract L and U
+
+    
+        
+            
+            
+        
+
+    # TODO: Implement Doolittle algorithm
+    # For each column k:
+    #   Compute U[k,j] for j >= k
+    #   Compute L[i,k] for i > k
+    #   Check for zero pivot (would need row swap)
+
+    pass
+
+def permutation_matrix(perm: list[int]) -> Matrix:
+    """
+    Create permutation matrix from permutation vector.
+
+    Args:
+        perm: List where perm[i] = j means row i of P has 1 in column j.
+
+    Returns:
+        Permutation matrix P.
+
+    Example:
+        perm = [1, 0, 2] creates:
+        [[0, 1, 0],
+         [1, 0, 0],
+         [0, 0, 1]]
+    """
+    n = len(perm)
+    P = [[1 if perm[i] == j else 0 for j in range(n)] for i in range(n)]
+    return Matrix(P)
+
+def forward_substitution(L: Matrix, b: list[float]) -> list[float]:
+    """
+    Solve Ly = b where L is lower triangular.
+
+    Args:
+        L: Lower triangular matrix (with 1s on diagonal).
+        b: Right-hand side vector.
+
+    Returns:
+        Solution vector y.
+
+    Algorithm:
+        y[0] = b[0] / L[0,0]  (but L[0,0] = 1)
+        y[i] = (b[i] - sum(L[i,j] * y[j] for j < i)) / L[i,i]
+    """
+    n = len(b)
+    y = [0.0] * n
+    
+    for i in range(n):
+        y[i] = b[i] - sum(L.data[i][j] *y[j] for j in range(i))
+    return y
+
+def backward_substitution(U: Matrix, y: list[float]) -> list[float]:
+    """
+    Solve Ux = y where U is upper triangular.
+
+    Args:
+        U: Upper triangular matrix.
+        y: Right-hand side vector.
+
+    Returns:
+        Solution vector x.
+
+    Algorithm:
+        x[n-1] = y[n-1] / U[n-1, n-1]
+        x[i] = (y[i] - sum(U[i,j] * x[j] for j > i)) / U[i,i]
+    """
+    n = len(y)
+    x = [0.0] * n
+    for i in range(n - 1, -1, -1):
+        x[i] = (y[i] - sum(U.data[i][j] * x[j] for j in range(i + 1, n))) / U.data[i][i]
+    return x
+
+
+def solve_lu(L: Matrix, U: Matrix, b: list[float], P: Matrix = None) -> list[float]:
+    """
+    Solve Ax = b using precomputed LU decomposition.
+
+    If P is provided, solves PAx = Pb, i.e., LUx = Pb.
+
+    Args:
+        L: Lower triangular matrix.
+        U: Upper triangular matrix.
+        b: Right-hand side vector.
+        P: Optional permutation matrix.
+
+    Returns:
+        Solution vector x.
+
+    Algorithm:
+        1. If P given, compute Pb
+        2. Solve Ly = Pb (forward substitution)
+        3. Solve Ux = y (backward substitution)
+    """
+    # Apply permutation if provided
+    if P is not None:
+        # Pb = P @ b: permute the right-hand side
+        b_vec = Vector(b)
+        pb = P @ b_vec
+        b_permuted = pb.components
+    else:
+        b_permuted = b
+
+    # Forward substitution: solve Ly = Pb
+    y = forward_substitution(L, b_permuted)
+
+    # Backward substitution: solve Ux = y
+    x = backward_substitution(U, y)
+
+    return x
+
+
+def solve_multiple_systems(A: Matrix, bs: list[list[float]]) -> list[list[float]]:
+    """
+    Solve multiple systems Ax = b with same A.
+
+    Args:
+        A: Coefficient matrix.
+        bs: List of right-hand side vectors.
+
+    Returns:
+        List of solution vectors.
+
+    This demonstrates the efficiency of LU:
+    - Factor once
+    - Solve many times
+    """
+    # Compute PLU decomposition once
+    P, L, U = plu_decomposition(A)
+
+    # Solve for each b using the decomposition
+    solutions = []
+    for b in bs:
+        x = solve_lu(L, U, b, P)
+        solutions.append(x)
+
+    return solutions
